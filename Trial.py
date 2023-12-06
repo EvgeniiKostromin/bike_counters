@@ -84,7 +84,7 @@ y_train = df_train['log_bike_count']
 X_train = df_train.drop('log_bike_count', axis=1)
 
 
-# In[52]:
+# In[59]:
 
 
 from sklearn.compose import ColumnTransformer
@@ -101,7 +101,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 categorical_encoder = OneHotEncoder(handle_unknown="ignore")
 categorical_cols = ["counter_name"]
-passthrough_cols = ['year', 'month', 'weekday', 'hour', 't',  'rr3']
+passthrough_cols = ['year', 'month', 'weekday', 'hour', 't',  'rr3', 'latitude', 't', 'u', 'cod_tend']
 
 imputer = SimpleImputer(strategy='mean')
 
@@ -118,40 +118,40 @@ pipe = make_pipeline(preprocessor, imputer, regressor)
 pipe.fit(X_train, y_train)
 
 
-# In[37]:
+# In[53]:
 
 
 df_test = pd.read_parquet(Path("data") / "final_test.parquet")
 
 
-# In[38]:
+# In[54]:
 
 
 df_test = _merge_external_data(df_test)
 
 
-# In[39]:
+# In[55]:
 
 
 test_dates_encoding = _encode_dates(df_test[["date"]])
 df_test = pd.concat([df_test, test_dates_encoding], axis=1) 
 
 
-# In[40]:
+# In[56]:
 
 
 df_test['counter_age_days'] = df_test['date'] - df_test['counter_installation_date']
 df_test['counter_age_days'] = df_test['counter_age_days'].dt.days
 
 
-# In[41]:
+# In[57]:
 
 
 df_test ['rr3'] = df_test ['rr3'].fillna(df_test ['rr3'].mean())
 df_test ['rr12'] = df_test ['rr12'].fillna(df_test ['rr3'].mean())
 
 
-# In[43]:
+# In[58]:
 
 
 y_pred = pipe.predict(df_test)
