@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[26]:
+# In[44]:
 
 
 from pathlib import Path
@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 import sklearn
 
 
-# In[27]:
+# In[45]:
 
 
 df_train = pd.read_parquet(Path("data") / "train.parquet")
 
 
-# In[28]:
+# In[46]:
 
 
 def _encode_dates(X):
@@ -35,7 +35,7 @@ def _encode_dates(X):
     return X.drop(columns=["date"])
 
 
-# In[29]:
+# In[47]:
 
 
 def _merge_external_data(X):
@@ -57,41 +57,34 @@ def _merge_external_data(X):
     return X
 
 
-# In[30]:
+# In[48]:
 
 
 df_train = _merge_external_data(df_train)
 
 
-# In[31]:
+# In[49]:
 
 
 df_train['counter_age_days'] = df_train['date'] - df_train['counter_installation_date']
 df_train['counter_age_days'] = df_train['counter_age_days'].dt.days
 
 
-# In[32]:
+# In[50]:
 
 
 X_dates_encoding = _encode_dates(df_train[["date"]])
 df_train = pd.concat([df_train, X_dates_encoding], axis=1) 
 
 
-# In[33]:
-
-
-df_train['rr3'] = np.exp(-2.4 * df_train['rr3']) 
-df_train['rr12'] = np.exp(-0.2 * df_train['rr12']) 
-
-
-# In[34]:
+# In[51]:
 
 
 y_train = df_train['log_bike_count']
 X_train = df_train.drop('log_bike_count', axis=1)
 
 
-# In[35]:
+# In[52]:
 
 
 from sklearn.compose import ColumnTransformer
@@ -103,24 +96,23 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 
-date_cols = ["year", "month", 'day', 'weekday', 'hour']
-scaling_columns = ['counter_age_days', 'raf10', 't', 'pres', 'u', 'vv', 'tend24', 'latitude', 'rr3', 'rr12']
+
 categorical_encoder = OneHotEncoder(handle_unknown="ignore")
-categorical_cols = ["counter_name", "site_name", 't', 'pres', 'cod_tend']
+categorical_cols = ["counter_name"]
+passthrough_cols = ['year', 'month', 'weekday', 'hour', 't',  'rr3']
 
 imputer = SimpleImputer(strategy='mean')
 
 preprocessor = ColumnTransformer(
     [
-        ("date", OneHotEncoder(handle_unknown="ignore"), date_cols),
         ("cat", categorical_encoder, categorical_cols),
-        ('standard-scaler', StandardScaler(), scaling_columns),
-        
+        ('passthrough', 'passthrough', passthrough_cols)
     ]
 )
 
-regressor = Ridge(alpha=10)
+regressor = GradientBoostingRegressor()
 
 pipe = make_pipeline(preprocessor, imputer, regressor)
 pipe.fit(X_train, y_train)
@@ -157,13 +149,6 @@ df_test['counter_age_days'] = df_test['counter_age_days'].dt.days
 
 df_test ['rr3'] = df_test ['rr3'].fillna(df_test ['rr3'].mean())
 df_test ['rr12'] = df_test ['rr12'].fillna(df_test ['rr3'].mean())
-
-
-# In[42]:
-
-
-df_test['rr3'] = np.exp(-2.4 * df_test['rr3']) 
-df_test['rr12'] = np.exp(-0.2 * df_test['rr12']) 
 
 
 # In[43]:
