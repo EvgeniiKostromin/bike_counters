@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[44]:
+# In[76]:
 
 
 from pathlib import Path
@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 import sklearn
 
 
-# In[45]:
+# In[77]:
 
 
 df_train = pd.read_parquet(Path("data") / "train.parquet")
 
 
-# In[46]:
+# In[78]:
 
 
 def _encode_dates(X):
@@ -35,7 +35,7 @@ def _encode_dates(X):
     return X.drop(columns=["date"])
 
 
-# In[47]:
+# In[79]:
 
 
 def _merge_external_data(X):
@@ -57,34 +57,35 @@ def _merge_external_data(X):
     return X
 
 
-# In[48]:
+# In[80]:
 
 
 df_train = _merge_external_data(df_train)
 
 
-# In[49]:
+# In[81]:
 
 
 df_train['counter_age_days'] = df_train['date'] - df_train['counter_installation_date']
 df_train['counter_age_days'] = df_train['counter_age_days'].dt.days
 
 
-# In[50]:
+# In[82]:
 
 
 X_dates_encoding = _encode_dates(df_train[["date"]])
 df_train = pd.concat([df_train, X_dates_encoding], axis=1) 
 
 
-# In[51]:
+# In[83]:
 
 
+selected_features = ['latitude', 't', 'u', 'cod_tend', 'month', 'weekday', 'hour']
 y_train = df_train['log_bike_count']
-X_train = df_train.drop('log_bike_count', axis=1)
+X_train = df_train[selected_features]
 
 
-# In[59]:
+# In[ ]:
 
 
 from sklearn.compose import ColumnTransformer
@@ -97,64 +98,56 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import pandas as pd
+
+# Assuming df is your DataFrame containing the required columns
+# Replace 'df' with the actual variable containing your dataset
 
 
-categorical_encoder = OneHotEncoder(handle_unknown="ignore")
-categorical_cols = ["counter_name"]
-passthrough_cols = ['year', 'month', 'weekday', 'hour', 't',  'rr3', 'latitude', 't', 'u', 'cod_tend']
-
-imputer = SimpleImputer(strategy='mean')
-
-preprocessor = ColumnTransformer(
-    [
-        ("cat", categorical_encoder, categorical_cols),
-        ('passthrough', 'passthrough', passthrough_cols)
-    ]
-)
-
-regressor = GradientBoostingRegressor()
-
-pipe = make_pipeline(preprocessor, imputer, regressor)
+# Initialize and train a Gradient Boosting Regressor
+pipe = GradientBoostingRegressor(n_estimators=200, learning_rate=0.1,  max_depth=4)
 pipe.fit(X_train, y_train)
 
 
-# In[53]:
+# In[70]:
 
 
 df_test = pd.read_parquet(Path("data") / "final_test.parquet")
 
 
-# In[54]:
+# In[71]:
 
 
 df_test = _merge_external_data(df_test)
 
 
-# In[55]:
+# In[72]:
 
 
 test_dates_encoding = _encode_dates(df_test[["date"]])
 df_test = pd.concat([df_test, test_dates_encoding], axis=1) 
 
 
-# In[56]:
+# In[73]:
 
 
 df_test['counter_age_days'] = df_test['date'] - df_test['counter_installation_date']
 df_test['counter_age_days'] = df_test['counter_age_days'].dt.days
 
 
-# In[57]:
+# In[74]:
 
 
 df_test ['rr3'] = df_test ['rr3'].fillna(df_test ['rr3'].mean())
 df_test ['rr12'] = df_test ['rr12'].fillna(df_test ['rr3'].mean())
 
 
-# In[58]:
+# In[75]:
 
 
-y_pred = pipe.predict(df_test)
+y_pred = pipe.predict(df_test[selected_features])
 results = pd.DataFrame(
     dict(
         Id=np.arange(y_pred.shape[0]),
@@ -162,4 +155,10 @@ results = pd.DataFrame(
     )
 )
 results.to_csv("submission.csv", index=False)
+
+
+# In[ ]:
+
+
+
 
