@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[22]:
+# In[26]:
 
 
 from pathlib import Path
@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 import sklearn
 
 
-# In[23]:
+# In[27]:
 
 
 df_train = pd.read_parquet(Path("data") / "train.parquet")
 
 
-# In[24]:
+# In[28]:
 
 
 def _encode_dates(X):
@@ -35,7 +35,7 @@ def _encode_dates(X):
     return X.drop(columns=["date"])
 
 
-# In[25]:
+# In[29]:
 
 
 def _merge_external_data(X):
@@ -49,7 +49,7 @@ def _merge_external_data(X):
     # When using merge_asof left frame need to be sorted
     X["orig_index"] = np.arange(X.shape[0])
     X = pd.merge_asof(
-        X.sort_values("date"), df_ext[["date", "t", 'pres', 'raf10', 'u', 'vv', 'tend24', 'cod_tend', 'rr3']].sort_values("date"), on="date"
+        X.sort_values("date"), df_ext[["date", "t", 'pres', 'raf10', 'u', 'vv', 'tend24', 'cod_tend', 'rr3', 'rr12']].sort_values("date"), on="date"
     )
     # Sort back to the original order
     X = X.sort_values("orig_index")
@@ -57,34 +57,41 @@ def _merge_external_data(X):
     return X
 
 
-# In[26]:
+# In[30]:
 
 
 df_train = _merge_external_data(df_train)
 
 
-# In[28]:
+# In[31]:
 
 
 df_train['counter_age_days'] = df_train['date'] - df_train['counter_installation_date']
 df_train['counter_age_days'] = df_train['counter_age_days'].dt.days
 
 
-# In[29]:
+# In[32]:
 
 
 X_dates_encoding = _encode_dates(df_train[["date"]])
 df_train = pd.concat([df_train, X_dates_encoding], axis=1) 
 
 
-# In[30]:
+# In[33]:
+
+
+df_train['rr3'] = np.exp(-2.4 * df_train['rr3']) 
+df_train['rr12'] = np.exp(-0.2 * df_train['rr12']) 
+
+
+# In[34]:
 
 
 y_train = df_train['log_bike_count']
 X_train = df_train.drop('log_bike_count', axis=1)
 
 
-# In[31]:
+# In[35]:
 
 
 from sklearn.compose import ColumnTransformer
@@ -95,11 +102,12 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.tree import DecisionTreeRegressor
 
-
-scaling_columns = ['counter_age_days', 't', 'pres', 'raf10', 'u', 'vv', 'tend24', 'cod_tend', 'rr3']
+date_cols = ["year", "month", 'day', 'weekday', 'hour']
+scaling_columns = ['counter_age_days', 'raf10', 't', 'pres', 'u', 'vv', 'tend24', 'latitude', 'rr3', 'rr12']
 categorical_encoder = OneHotEncoder(handle_unknown="ignore")
-categorical_cols = ["counter_name", "site_name"]
+categorical_cols = ["counter_name", "site_name", 't', 'pres', 'cod_tend']
 
 imputer = SimpleImputer(strategy='mean')
 
@@ -107,49 +115,58 @@ preprocessor = ColumnTransformer(
     [
         ("date", OneHotEncoder(handle_unknown="ignore"), date_cols),
         ("cat", categorical_encoder, categorical_cols),
-        ('standard-scaler', StandardScaler(), scaling_columns)
+        ('standard-scaler', StandardScaler(), scaling_columns),
+        
     ]
 )
 
-regressor = RandomForestRegressor(n_estimators=100, random_state=42)
+regressor = Ridge(alpha=10)
 
 pipe = make_pipeline(preprocessor, imputer, regressor)
 pipe.fit(X_train, y_train)
 
 
-# In[33]:
+# In[37]:
 
 
 df_test = pd.read_parquet(Path("data") / "final_test.parquet")
 
 
-# In[34]:
+# In[38]:
 
 
 df_test = _merge_external_data(df_test)
 
 
-# In[35]:
+# In[39]:
 
 
 test_dates_encoding = _encode_dates(df_test[["date"]])
 df_test = pd.concat([df_test, test_dates_encoding], axis=1) 
 
 
-# In[36]:
+# In[40]:
 
 
 df_test['counter_age_days'] = df_test['date'] - df_test['counter_installation_date']
 df_test['counter_age_days'] = df_test['counter_age_days'].dt.days
 
 
-# In[40]:
+# In[41]:
 
 
 df_test ['rr3'] = df_test ['rr3'].fillna(df_test ['rr3'].mean())
+df_test ['rr12'] = df_test ['rr12'].fillna(df_test ['rr3'].mean())
 
 
-# In[38]:
+# In[42]:
+
+
+df_test['rr3'] = np.exp(-2.4 * df_test['rr3']) 
+df_test['rr12'] = np.exp(-0.2 * df_test['rr12']) 
+
+
+# In[43]:
 
 
 y_pred = pipe.predict(df_test)
@@ -160,10 +177,4 @@ results = pd.DataFrame(
     )
 )
 results.to_csv("submission.csv", index=False)
-
-
-# In[ ]:
-
-
-jupyter nbconvert --to script [Trial].ipynb
 
