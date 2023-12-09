@@ -100,7 +100,7 @@ import pandas as pd
 from xgboost import XGBRegressor
 
 
-categorical_encoder = OneHotEncoder(handle_unknown="ignore")
+categorical_encoder = OrdinalEncoder()
 categorical_cols = ["counter_name"]
 passthrough_cols = ['latitude', 't', 'u', 'month', 'weekday', 'hour', 'day']
 
@@ -112,9 +112,8 @@ preprocessor = ColumnTransformer(
 )
 
 regressor = XGBRegressor(
-    learning_rate=0.1, max_depth=9, n_estimators=980, gamma=0,
-    min_child_weight=7, reg_alpha=0.2, colsample_bytree=0.85,
-    reg_lambda=6, max_delta_step=1
+    learning_rate=0.13, max_depth=8, n_estimators=790, gamma=0,
+    min_child_weight=7, reg_alpha=0.15, colsample_bytree=0.9
 )
 
 pipe = make_pipeline(preprocessor, regressor)
