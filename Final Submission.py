@@ -31,7 +31,7 @@ def _encode_dates(X):
     X["hour"] = X["date"].dt.hour
     X['week'] = X["date"].dt.isocalendar().week
 
-    # Finally we can drop the original columns from the dataframe
+    # Drop the original columns from the dataframe
     return X.drop(columns=["date"])
 
 
@@ -39,13 +39,14 @@ def _encode_dates(X):
 
 
 def _merge_external_data(X):
-    file_path = Path('data') / "external_data.csv"
+    file_path = file_path = Path('data') / "external_data.csv"
     df_ext = pd.read_csv(file_path, parse_dates=["date"])
 
     X['date'] = pd.to_datetime(X['date']).astype('datetime64[ns]')
     df_ext['date'] = pd.to_datetime(df_ext['date']).astype('datetime64[ns]')
 
     X = X.copy()
+
     # When using merge_asof left frame need to be sorted
     X["orig_index"] = np.arange(X.shape[0])
     X = pd.merge_asof(
@@ -53,6 +54,7 @@ def _merge_external_data(X):
             "date", "t", 'u'
         ]].sort_values("date"), on="date"
     )
+
     # Sort back to the original order
     X = X.sort_values("orig_index")
     del X["orig_index"]
@@ -82,7 +84,6 @@ X_train = df_train.drop('log_bike_count', axis=1)
 # In[8]:
 
 
-from sklearn.preprocessing import OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
